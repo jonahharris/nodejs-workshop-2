@@ -1,0 +1,117 @@
+<html>
+  <head>
+    <title>Awesome Feed!</title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+    <script src="js/knockout-2.2.0.js"></script>
+    <script src="socket.io/socket.io.js"></script>
+    <script type="text/javascript" src="/js/jquery.ddslick.min.js"></script>
+    <script>
+      function Post (data)
+      {
+        this.member_id = ko.observable(data.member_id);
+        this.member = ko.observable(data.member);
+        this.content = ko.observable(data.content);
+      }
+
+      function Feed ()
+      {
+        this.feedPosts = ko.observableArray([]);
+
+        this.addPost = function (data)
+        {
+          this.feedPosts.unshift(new Post(data));
+        }
+      }
+
+      $(document).ready(
+        function()
+      {
+        var theFeed = new Feed();
+        ko.applyBindings(theFeed);
+
+        var socket = io.connect('http://localhost:8080');
+
+        socket.on('feedPost',
+          function (data)
+        {
+          theFeed.addPost(data);
+        });
+
+        $.get('/feed',
+          function (data)
+        {
+          for (var i = 0; i < data.length; ++i)
+            theFeed.addPost(data[i]);
+        });
+
+        $.getJSON('/js/celebdd.json',
+          function(ddData)
+        {
+          $('#celebs').ddslick({
+            data: ddData,
+            width: 350,
+            imagePosition: "left",
+            selectText: "Select your favorite Celeb",
+            onSelected: function (data) {
+              if (data.selectedIndex > -1)
+              {
+                $('#statusPostMemberId').val(data.selectedData.value);
+              }
+            }
+          });
+        });
+
+        $('#statusPostButton').live('click',
+          function() 
+        {
+          var member_id = $('#statusPostMemberId').val();
+          var status = $('#statusPostBox').val();
+          var dataString = { member_id: member_id, content: status };
+
+          if ($.trim(status).length > 0)
+          {
+            $.ajax({
+              type: "POST",
+              url: "/feed",
+              data: dataString,
+              cache: false,
+              success: function(html) {
+                $("#statusPostBox").val('');
+                $("#statusPostBox").focus();
+              }
+            });
+          }
+          return false;
+        });
+      });
+    </script>
+    <style>
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; 
+      font-size: 13px;
+    }
+    </style>
+  </head>
+  <body>
+    <div id="celebs" style="height: 75px;"></div>
+    <form method="post" action="/feed">
+    <input id="statusPostMemberId" type="hidden" name="member_id" value=""/>
+    <textarea id="statusPostBox" name="content" rows=3 cols=60></textarea>
+    <input id="statusPostButton" type="submit" value="Submit it, yo!"/>
+    </form>
+    <hr style="border: 1px solid #bbb"/>
+    <div data-bind="foreach: feedPosts">
+      <table width="100%" border="0" style="border-top: 1px solid #bbb">
+        <tr>
+          <td width="50">
+            <img align="left" data-bind="attr: {'src': '/assets/square/' + member_id() + '.jpeg'}" width="50" height="50"/>
+          </td>
+          <td width="*">
+            <strong><a data-bind="attr: {'href': '/members/' + member_id()}"><span data-bind="text: member"></span></a></strong><br/>
+            <span data-bind="text: content"></span>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>
